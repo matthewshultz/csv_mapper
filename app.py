@@ -1,20 +1,21 @@
+#import modules
 import base64
 import datetime
 import io
-
 import dash
-from dash.dependencies import Input, Output, State
 import dash_core_components as dcc
 import dash_html_components as html
 import dash_table
-
+from dash.dependencies import Input, Output, State
+import plotly.graph_objects as go
 import pandas as pd
 
-
+#config
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+mapbox_access_token = open("_mapbox_token").read()
 
+#set the layout on the page
 app.layout = html.Div([
     dcc.Upload(
         id='upload-data',
@@ -40,10 +41,14 @@ app.layout = html.Div([
     html.Div(id='intermediate-value', style={'display': 'none'}),
 ])
 
-
 def parse_contents(contents, filename, date):
+    """
+    upload function that accepts csv or xls files
+    
+    returns:
+        -   df: a dataframe
+    """
     content_type, content_string = contents.split(',')
-
     decoded = base64.b64decode(content_string)
     try:
         if 'csv' in filename:
@@ -61,6 +66,10 @@ def parse_contents(contents, filename, date):
     return df
 
 def update_table_format(df):
+    """
+    function cycles through the dataframe and writes to page
+    """
+
     if df is not None:
         return html.Div([
             #html.H5(filename),
@@ -98,75 +107,65 @@ def update_output(list_of_contents, list_of_names, list_of_dates):
 @app.callback(Output('output-data-upload', 'children'), [Input('intermediate-value', 'children')])
 def update_table(jsonified_cleaned_data):
     if jsonified_cleaned_data is not None:
-
         # more generally, this line would be
         # json.loads(jsonified_cleaned_data)
         dff = pd.read_json(jsonified_cleaned_data, orient='split')
-
         table = update_table_format(dff)
         return table
 
 @app.callback(Output('output-data-plot', 'figure'), [Input('intermediate-value', 'children')])
-def update_figure(jsonified_cleaned_data):
-    if jsonified_cleaned_data is not None:
-        dff = pd.read_json(jsonified_cleaned_data, orient='split')
-        #filtered_df = df[df.year == selected_year]
-    traces = []
-    #for i in dff.continent.unique():
-    #    df_by_continent = dff[dff['continent'] == i]
-    #traces.append(dict(
-    #    x=dff['x'],
-    #    y=dff['y'],
-    #    text='test',
-    #    mode='markers',
-    #    opacity=0.7,
-    #    marker={
-    #        'size': 15,
-    #        'line': {'width': 0.5, 'color': 'white'}
-    #    },
-    #    name='test'
-    #))
-    if jsonified_cleaned_data is not None:
-        my_x=dff['x']
-        my_y=dff['y']
+def gen_map(df):
+    # groupby returns a dictionary mapping the values of the first field
+    # 'classification' onto a list of record dictionaries with that
+    # classification value.
+    #import pdb; pdb.set_trace()
+    if df is not None:
+        dff = pd.read_json(df, orient='split')
+        latitude = dff['Latitude'].values.tolist()
+        longitude = dff['Longitude'].values.tolist()
     else:
-        my_x=[1,2,3]
-        my_y=[1,2,3]
-    return {
-    'data': [dict(
-        x=my_x,
-        y=my_y,
-        text='test',
-        mode='markers',
-        marker={
-            'size': 15,
-            'opacity': 0.5,
-            'line': {'width': 0.5, 'color': 'white'}
-        }
-    )],
-    'layout': dict(
-        xaxis={
-            'title': 'test',
-            'type': 'linear'
-        },
-        yaxis={
-            'title': 'test',
-            'type': 'linear'
-        },
-        margin={'l': 40, 'b': 40, 't': 10, 'r': 0},
-        hovermode='closest'
-    )
-}
-            #{
-            #'data': traces,
-            #'layout': dict(
-            #    xaxis={'type': 'log', 'title': 'GDP Per Capita',
-            #        'range':[2.3, 4.8]},
-            #    yaxis={'title': 'Life Expectancy', 'range': [20, 90]},
-            #    margin={'l': 40, 'b': 40, 't': 10, 'r': 10},
-            #    legend={'x': 0, 'y': 1},
-            #    hovermode='closest',
-            #    transition = {'duration': 500},
-            #)
+        latitude = [-32.8882772]
+        longitude = [151.765032]
+    #outputs
+    data_output = [{"type": "scattermapbox",
+        "lat": latitude,
+        "lon": longitude,
+        "hoverinfo": "text",
+    #   "hovertext": [["Name: {} <br>Type: {} <br>Provider: {}".format(i,j,k)]
+    #                                for i,j,k in zip(map_data['Name'], map_data['Type'],map_data['Provider'])],
+    #   "mode": "markers",
+    #   "name": list(map_data['Name']),
+        "marker": {
+        "size": 6,
+        "opacity": 0.7
+        }}]
+
+    layout_output = dict(
+        autosize=True,
+        height=500,
+        font=dict(color="#191A1A"),
+        titlefont=dict(color="#191A1A", size='14'),
+        margin=dict(
+            l=35,
+            r=35,
+            b=35,
+            t=45
+        ),
+        hovermode="closest",
+        plot_bgcolor='#fffcfc',
+        paper_bgcolor='#fffcfc',
+        legend=dict(font=dict(size=10), orientation='h'),
+        title='WiFi Hotspots in NYC',
+        mapbox=dict(
+            accesstoken=mapbox_access_token,
+            style="light",
+            center=dict(
+                lon=longitude[0],
+                lat=latitude[0]
+            ),
+            zoom=10,
+        ))
+    return {"data": data_output, "layout": layout_output}
+
 if __name__ == '__main__':
     app.run_server(debug=True)
