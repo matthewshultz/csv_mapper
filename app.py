@@ -17,6 +17,13 @@ mapbox_access_token = open("_mapbox_token").read()
 
 #set the layout on the page
 app.layout = html.Div([
+    #first some information for the user about how to use the app
+    html.H1('CSV Mapper'),
+    html.P('Drag and drop a csv file for it to get plotted'),
+    html.H5('Inputs:'),
+    html.Li('csv file - that must have a Latitude and Longitude column'),
+    html.H5('Outputs:'),
+    html.Li('map - plots the Latitude and Longitude column'),
     dcc.Upload(
         id='upload-data',
         children=html.Div([
